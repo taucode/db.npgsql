@@ -1,0 +1,3 @@
+2020-09-24
+==========
+    1. Created this project in order to have PostgreSQL-specific functions separate from TauCode.Db libary.
