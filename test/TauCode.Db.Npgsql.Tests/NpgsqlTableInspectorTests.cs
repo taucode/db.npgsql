@@ -20,7 +20,7 @@ namespace TauCode.Db.Npgsql.Tests
             // Arrange
 
             // Act
-            var ex = Assert.Throws<DbException>(() =>
+            var ex = Assert.Throws<TauDbException>(() =>
                 {
                     var tableInspector = this.DbInspector.Factory.CreateTableInspector(this.Connection, null,  "non_existing_table");
                     tableInspector.GetTable();
