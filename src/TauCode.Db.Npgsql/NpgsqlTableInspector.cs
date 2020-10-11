@@ -10,10 +10,10 @@ namespace TauCode.Db.Npgsql
     {
         #region Constructor
 
-        public NpgsqlTableInspector(IDbConnection connection, string schema, string tableName)
+        public NpgsqlTableInspector(IDbConnection connection, string schemaName, string tableName)
             : base(
                 connection,
-                schema ?? NpgsqlInspector.DefaultSchema,
+                schemaName ?? NpgsqlInspector.DefaultSchemaName,
                 tableName)
         {
         }
@@ -162,7 +162,7 @@ WHERE
 
         public override PrimaryKeyMold GetPrimaryKey()
         {
-            return NpgsqlTools.LoadPrimaryKey(this.Connection, this.Schema, this.TableName);
+            return NpgsqlTools.LoadPrimaryKey(this.Connection, this.SchemaName, this.TableName);
         }
 
         public override IReadOnlyList<ForeignKeyMold> GetForeignKeys()
@@ -181,7 +181,7 @@ WHERE
     TC.table_name = @p_tableName AND
     TC.constraint_type = 'FOREIGN KEY'
 ";
-            command.AddParameterWithValue("@p_schema", this.Schema);
+            command.AddParameterWithValue("@p_schema", this.SchemaName);
             command.AddParameterWithValue("@p_tableName", this.TableName);
 
             var rows = DbTools.GetCommandRows(command);
@@ -211,7 +211,7 @@ WHERE
     AND
     CCU.constraint_name = @p_fkName
 ";
-            command.AddParameterWithValue("p_schema", this.Schema);
+            command.AddParameterWithValue("p_schema", this.SchemaName);
             command.AddParameterWithValue("p_fkName", fkName);
 
             var referencedTableName = DbTools.GetCommandRows(command)
@@ -220,7 +220,7 @@ WHERE
                 .Single();
 
             // get referenced table PK
-            var referencedTablePk = NpgsqlTools.LoadPrimaryKey(this.Connection, this.Schema, referencedTableName);
+            var referencedTablePk = NpgsqlTools.LoadPrimaryKey(this.Connection, this.SchemaName, referencedTableName);
 
             // get foreign key columns
 
@@ -242,7 +242,7 @@ order by
     KCU.ordinal_position
 ";
 
-            command.AddParameterWithValue("p_schema", this.Schema);
+            command.AddParameterWithValue("p_schema", this.SchemaName);
             command.AddParameterWithValue("p_tableName", this.TableName);
             command.AddParameterWithValue("p_fkName", fkName);
 
@@ -288,7 +288,7 @@ WHERE
     IX.schemaname = @p_schema AND
     IX.tablename = @p_tableName
 ";
-            command.AddParameterWithValue("p_schema", this.Schema);
+            command.AddParameterWithValue("p_schema", this.SchemaName);
             command.AddParameterWithValue("p_tableName", this.TableName);
 
 

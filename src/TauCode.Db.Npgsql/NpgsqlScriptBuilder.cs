@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using TauCode.Db.Model;
 
+// todo clean up
 namespace TauCode.Db.Npgsql
 {
     public class NpgsqlScriptBuilder : DbScriptBuilderBase
@@ -8,8 +9,8 @@ namespace TauCode.Db.Npgsql
         //private const int MAX_SIZE_SURROGATE = -1;
         //private const string MAX_SIZE = "max";
 
-        public NpgsqlScriptBuilder(string schema)
-            : base(schema)
+        public NpgsqlScriptBuilder(string schemaName)
+            : base(schemaName)
         {
         }
 

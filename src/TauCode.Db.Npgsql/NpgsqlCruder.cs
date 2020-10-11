@@ -10,8 +10,8 @@ namespace TauCode.Db.Npgsql
 {
     public class NpgsqlCruder : DbCruderBase
     {
-        public NpgsqlCruder(IDbConnection connection, string schema)
-            : base(connection, schema)
+        public NpgsqlCruder(IDbConnection connection, string schemaName)
+            : base(connection, schemaName)
         {
         }
 

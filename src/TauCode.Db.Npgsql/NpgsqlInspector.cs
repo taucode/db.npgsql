@@ -2,22 +2,21 @@
 using System.Data;
 using System.Linq;
 
+// todo nice look
 namespace TauCode.Db.Npgsql
 {
     public class NpgsqlInspector : DbInspectorBase
     {
         #region Constants
 
-        public const string DefaultSchema = "public";
-
-        private const string TableTypeForTable = "BASE TABLE"; // todo: don't need this, really
+        public const string DefaultSchemaName = "public";
 
         #endregion
 
         #region Constructor
 
-        public NpgsqlInspector(IDbConnection connection, string schema)
-            : base(connection, schema ?? DefaultSchema)
+        public NpgsqlInspector(IDbConnection connection, string schemaName)
+            : base(connection, schemaName ?? DefaultSchemaName)
         {
         }
 
@@ -25,7 +24,7 @@ namespace TauCode.Db.Npgsql
 
         public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
 
-        protected override IReadOnlyList<string> GetTableNamesImpl(string schema)
+        protected override IReadOnlyList<string> GetTableNamesImpl(string schemaName)
         {
             using var command = this.Connection.CreateCommand();
             var sql =
@@ -35,12 +34,11 @@ SELECT
 FROM
     information_schema.tables T
 WHERE
-    T.table_type = @p_tableType AND
-    T.table_schema = @p_schema
+    T.table_type = 'BASE TABLE' AND
+    T.table_schema = @p_schemaName
 ";
 
-            command.AddParameterWithValue("p_tableType", TableTypeForTable);
-            command.AddParameterWithValue("p_schema", this.Schema);
+            command.AddParameterWithValue("p_schemaName", schemaName);
 
             command.CommandText = sql;
 
@@ -50,6 +48,11 @@ WHERE
                 .ToArray();
 
             return tableNames;
+        }
+
+        protected override HashSet<string> GetSystemSchemata()
+        {
+            throw new System.NotImplementedException();
         }
     }
 }

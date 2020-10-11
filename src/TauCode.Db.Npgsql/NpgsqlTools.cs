@@ -6,10 +6,10 @@ namespace TauCode.Db.Npgsql
 {
     public static class NpgsqlTools
     {
-        public static PrimaryKeyMold LoadPrimaryKey(IDbConnection connection, string schema, string tableName)
+        public static PrimaryKeyMold LoadPrimaryKey(IDbConnection connection, string schemaName, string tableName)
         {
             // todo check args
-            // todo: schema not used!
+            // todo: schemaName not used!
 
             using var command = connection.CreateCommand();
 
