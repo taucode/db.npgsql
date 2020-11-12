@@ -140,7 +140,7 @@ WHERE
             }
         }
 
-        public override IReadOnlyList<string> GetSystemSchemata()
+        public override IReadOnlyList<string> GetSystemSchemaNames()
         {
             return new List<string>
             {
