@@ -1,61 +1,7 @@
-﻿using System.Data;
-using System.Linq;
-using TauCode.Db.Model;
-
-namespace TauCode.Db.Npgsql
+﻿namespace TauCode.Db.Npgsql
 {
     public static class NpgsqlTools
     {
-        public static PrimaryKeyMold LoadPrimaryKey(IDbConnection connection, string schemaName, string tableName)
-        {
-            // todo check args
-            // todo: schemaName not used!
-
-            using var command = connection.CreateCommand();
-
-            command.CommandText =
-                @"
-SELECT
-    TC.constraint_name    ConstraintName,
-    KCU.column_name       ColumnName,
-    KCU.ordinal_position  OrdinalPosition
-FROM
-    information_schema.table_constraints TC
-INNER JOIN
-    information_schema.key_column_usage KCU
-ON
-    KCU.table_name = TC.table_name AND
-    KCU.constraint_name = TC.constraint_name
-WHERE
-    TC.table_name = @p_tableName
-    AND
-    TC.constraint_type = 'PRIMARY KEY'
-ORDER BY
-    OrdinalPosition
-";
-            command.AddParameterWithValue("p_tableName", tableName);
-
-
-            var rows = DbTools.GetCommandRows(command);
-            if (rows.Count == 0)
-            {
-                return null;
-            }
-
-            var pkName = rows[0].ConstraintName;
-            var pk = new PrimaryKeyMold
-            {
-                Name = pkName,
-                Columns = rows
-                    .Select(x => new IndexColumnMold
-                    {
-                        Name = (string)x.ColumnName,
-                        SortDirection = SortDirection.Ascending,
-                    })
-                    .ToList(),
-            };
-
-            return pk;
-        }
+        public const string DefaultSchemaName = "public";
     }
 }

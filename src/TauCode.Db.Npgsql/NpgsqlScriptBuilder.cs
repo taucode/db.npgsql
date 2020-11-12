@@ -1,58 +1,16 @@
 ﻿using System.Text;
 using TauCode.Db.Model;
 
-// todo clean up
 namespace TauCode.Db.Npgsql
 {
     public class NpgsqlScriptBuilder : DbScriptBuilderBase
     {
-        //private const int MAX_SIZE_SURROGATE = -1;
-        //private const string MAX_SIZE = "max";
-
         public NpgsqlScriptBuilder(string schemaName)
-            : base(schemaName)
+            : base(schemaName ?? NpgsqlTools.DefaultSchemaName)
         {
         }
 
         public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
-
-        //protected override string TransformNegativeTypeSize(int size)
-        //{
-        //    if (size == MAX_SIZE_SURROGATE)
-        //    {
-        //        return MAX_SIZE;
-        //    }
-
-        //    return base.TransformNegativeTypeSize(size);
-        //}
-
-        protected override void WritePrimaryKeyConstraintScriptFragment(StringBuilder sb, PrimaryKeyMold primaryKey)
-        {
-            var decoratedConstraintName = this.Dialect.DecorateIdentifier(
-                DbIdentifierType.Constraint,
-                primaryKey.Name,
-                this.CurrentOpeningIdentifierDelimiter);
-
-            sb.Append($"CONSTRAINT {decoratedConstraintName} PRIMARY KEY(");
-
-            for (var i = 0; i < primaryKey.Columns.Count; i++)
-            {
-                var indexColumn = primaryKey.Columns[i];
-                var decoratedColumnName = this.Dialect.DecorateIdentifier(
-                    DbIdentifierType.Column,
-                    indexColumn.Name,
-                    this.CurrentOpeningIdentifierDelimiter);
-
-                sb.Append(decoratedColumnName);
-
-                if (i < primaryKey.Columns.Count - 1)
-                {
-                    sb.Append(", ");
-                }
-            }
-
-            sb.Append(")");
-        }
 
         protected override string BuildInsertScriptWithDefaultValues(TableMold table)
         {
@@ -61,8 +19,12 @@ namespace TauCode.Db.Npgsql
                 table.Name,
                 this.CurrentOpeningIdentifierDelimiter);
 
-            var result = $"INSERT INTO {decoratedTableName} DEFAULT VALUES";
-            return result;
+            var sb = new StringBuilder();
+            sb.Append("INSERT INTO ");
+            this.WriteSchemaPrefixIfNeeded(sb);
+            sb.Append($"{decoratedTableName} DEFAULT VALUES");
+
+            return sb.ToString();
         }
     }
 }

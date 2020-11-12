@@ -4,68 +4,59 @@ using Npgsql;
 using NpgsqlTypes;
 using TauCode.Db.DbValueConverters;
 using TauCode.Db.Model;
-using TauCode.Db.Npgsql.DbValueConverters;
 
 namespace TauCode.Db.Npgsql
 {
     public class NpgsqlCruder : DbCruderBase
     {
-        public NpgsqlCruder(IDbConnection connection, string schemaName)
-            : base(connection, schemaName)
+        public NpgsqlCruder(NpgsqlConnection connection, string schemaName)
+            : base(connection, schemaName ?? NpgsqlTools.DefaultSchemaName)
         {
         }
 
         public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
-
         protected override IDbValueConverter CreateDbValueConverter(ColumnMold column)
         {
-            var typeName = column.Type.Name.ToLowerInvariant();
-            switch (typeName)
+            switch (column.Type.Name)
             {
                 case "uuid":
                     return new GuidValueConverter();
 
-                case "character":
-                case "character varying":
-                case "text":
-                    return new StringValueConverter();
+                case "boolean":
+                    return new BooleanValueConverter();
+
+                case "smallint":
+                    return new Int16ValueConverter();
 
                 case "integer":
                     return new Int32ValueConverter();
 
-                case "date":
-                    return new DateTimeValueConverter();
+                case "bigint":
+                    return new Int64ValueConverter();
 
-                case "bit":
-                    return new BooleanValueConverter();
-
-                case "float":
-                    return new DoubleValueConverter();
-
-                case "real":
-                    return new SingleValueConverter();
-
-                case "money":
-                    return new NpgsqlMoneyConverter();
-
-                case "decimal":
                 case "numeric":
+                case "money":
                     return new DecimalValueConverter();
 
                 case "double precision":
                     return new DoubleValueConverter();
 
-                case "smallint":
-                    return new Int16ValueConverter();
-
-                case "bigint":
-                    return new Int64ValueConverter();
+                case "real":
+                    return new SingleValueConverter();
 
                 case "timestamp without time zone":
                     return new DateTimeValueConverter();
 
-                case "boolean":
-                    return new BooleanValueConverter();
+                case "timestamp with time zone":
+                    return new DateTimeOffsetValueConverter();
+
+                case "time without time zone":
+                    return new TimeSpanValueConverter();
+
+                case "character":
+                case "character varying":
+                case "text":
+                    return new StringValueConverter();
 
                 case "bytea":
                     return new ByteArrayValueConverter();
@@ -84,29 +75,8 @@ namespace TauCode.Db.Npgsql
                 case "uuid":
                     return new NpgsqlParameter(parameterName, NpgsqlDbType.Uuid);
 
-                case "character":
-                    return new NpgsqlParameter(
-                        parameterName,
-                        NpgsqlDbType.Char,
-                        column.Type.Size ?? throw new NotImplementedException());
-
-                case "character varying":
-                    return new NpgsqlParameter(
-                        parameterName,
-                        NpgsqlDbType.Varchar,
-                        column.Type.Size ?? throw new NotImplementedException());
-
-                case "text":
-                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Text, -1);
-
-                case "timestamp without time zone":
-                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Timestamp);
-
                 case "boolean":
                     return new NpgsqlParameter(parameterName, NpgsqlDbType.Boolean);
-
-                case "bytea":
-                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Bytea, -1);
 
                 case "smallint":
                     return new NpgsqlParameter(parameterName, NpgsqlDbType.Smallint);
@@ -117,20 +87,38 @@ namespace TauCode.Db.Npgsql
                 case "bigint":
                     return new NpgsqlParameter(parameterName, NpgsqlDbType.Bigint);
 
-                case "double precision":
-                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Double);
-
-                case "real":
-                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Real);
+                case "numeric":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Numeric);
 
                 case "money":
                     return new NpgsqlParameter(parameterName, NpgsqlDbType.Money);
 
-                case "numeric":
-                    var parameter = new NpgsqlParameter(parameterName, NpgsqlDbType.Numeric);
-                    parameter.Precision = (byte)(column.Type.Precision ?? 0);
-                    parameter.Scale = (byte)(column.Type.Scale ?? 0);
-                    return parameter;
+                case "real":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Real);
+
+                case "double precision":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Double);
+
+                case "timestamp without time zone":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Timestamp);
+
+                case "timestamp with time zone":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.TimestampTz);
+
+                case "time without time zone":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Time);
+
+                case "character":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Char);
+
+                case "character varying":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Varchar);
+
+                case "text":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Text);
+
+                case "bytea":
+                    return new NpgsqlParameter(parameterName, NpgsqlDbType.Bytea);
 
                 default:
                     throw new NotImplementedException();
