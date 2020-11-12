@@ -1,9 +1,13 @@
-﻿namespace TauCode.Db.Npgsql
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using TauCode.Db.Model;
+
+namespace TauCode.Db.Npgsql
 {
     [DbDialect(
         typeof(NpgsqlDialect),
         "reserved-words.txt",
-        //"data-type-names.txt",
         "\"\"")]
     public class NpgsqlDialect : DbDialectBase
     {
@@ -13,23 +17,27 @@
 
         #endregion
 
-        #region Constructor
-
         private NpgsqlDialect()
             : base(DbProviderNames.PostgreSQL)
         {
         }
 
-        #endregion
-
-        #region Overridden
-
         public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
-        
-        public override string UnicodeTextLiteralPrefix => "N";
 
         public override bool CanDecorateTypeIdentifier => false;
 
-        #endregion
+        public override IList<IndexMold> GetCreatableIndexes(TableMold tableMold)
+        {
+            if (tableMold == null)
+            {
+                throw new ArgumentNullException(nameof(tableMold));
+            }
+
+            var pk = tableMold.PrimaryKey;
+
+            return base.GetCreatableIndexes(tableMold)
+                .Where(x => x.Name != pk?.Name)
+                .ToList();
+        }
     }
 }
