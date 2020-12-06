@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>TauCode.Db.Npgsql</id>
-    <version>1.3.2.1-dev-2020-11-12-22-46</version>
+    <version>1.3.2.2-dev-2020-12-06-21-01</version>
     <authors>TauCode</authors>
     <owners>TauCode</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -10,13 +10,13 @@
     <projectUrl>https://github.com/taucode/taucode.db.npgsql</projectUrl>
     <description>PostgreSQL-specific database functionality</description>
     <releaseNotes>
-      Updating version to common.
+      Libraries arrangement.
     </releaseNotes>
     <tags>taucode db database npgsql postgresql</tags>
     <dependencies>
       <group targetFramework=".NETStandard2.1">
-        <dependency id="Npgsql" version="4.1.5" />
-        <dependency id="TauCode.Db" version="1.3.2.1-dev-2020-11-12-19-54" />
+        <dependency id="Npgsql" version="5.0.0" />
+        <dependency id="TauCode.Db" version="1.3.2.2-dev-2020-12-06-21-01" />
       </group>
     </dependencies>
   </metadata>
