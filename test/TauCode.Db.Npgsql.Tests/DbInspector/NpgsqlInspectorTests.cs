@@ -77,7 +77,7 @@ namespace TauCode.Db.Npgsql.Tests.DbInspector
         public void GetSchemaNames_NoArguments_ReturnsSchemaNames()
         {
             // Arrange
-            this.Connection.CreateSchema("zeta");
+            this.Connection.CreateSchema(TestHelper.SchemaName);
             this.Connection.CreateSchema("hello");
             this.Connection.CreateSchema("HangFire");
 
@@ -93,7 +93,7 @@ namespace TauCode.Db.Npgsql.Tests.DbInspector
                     "public",
                     "HangFire",
                     "hello",
-                    "zeta",
+                    TestHelper.SchemaName
                 },
                 schemaNames);
         }
@@ -106,7 +106,7 @@ namespace TauCode.Db.Npgsql.Tests.DbInspector
         public void GetTableNames_ExistingSchema_ReturnsTableNames()
         {
             // Arrange
-            this.Connection.CreateSchema("zeta");
+            this.Connection.CreateSchema(TestHelper.SchemaName);
 
             this.Connection.ExecuteSingleSql(@"
 CREATE TABLE ""zeta"".""tab2""(""id"" int PRIMARY KEY)
@@ -121,7 +121,7 @@ CREATE TABLE ""public"".""tab3""(""id"" int PRIMARY KEY)
 ");
 
 
-            IDbInspector inspector = new NpgsqlInspector(this.Connection, "zeta");
+            IDbInspector inspector = new NpgsqlInspector(this.Connection, TestHelper.SchemaName);
 
             // Act
             var tableNames = inspector.GetTableNames();
@@ -140,7 +140,7 @@ CREATE TABLE ""public"".""tab3""(""id"" int PRIMARY KEY)
         public void GetTableNames_NonExistingSchema_ReturnsEmptyList()
         {
             // Arrange
-            this.Connection.CreateSchema("zeta");
+            this.Connection.CreateSchema(TestHelper.SchemaName);
 
             this.Connection.ExecuteSingleSql(@"
 CREATE TABLE ""zeta"".""tab2""(""id"" int PRIMARY KEY)

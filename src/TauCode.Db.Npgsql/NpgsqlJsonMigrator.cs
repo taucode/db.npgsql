@@ -13,15 +13,15 @@ namespace TauCode.Db.Npgsql
             string schemaName,
             Func<string> metadataJsonGetter,
             Func<string> dataJsonGetter,
-            Func<string, bool> tableNamePredicate = null,
-            Func<TableMold, DynamicRow, DynamicRow> rowTransformer = null)
+            Func<string, bool> tableNamePredicate = null/*,
+            Func<TableMold, DynamicRow, DynamicRow> rowTransformer = null*/)
             : base(
                 connection,
                 schemaName ?? NpgsqlTools.DefaultSchemaName,
                 metadataJsonGetter,
                 dataJsonGetter,
-                tableNamePredicate,
-                rowTransformer)
+                tableNamePredicate/*,
+                rowTransformer*/)
         {
         }
 

@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using TauCode.Db.Data;
 using TauCode.Db.DbValueConverters;
 using TauCode.Db.Exceptions;
 using TauCode.Extensions;
@@ -19,7 +20,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         [SetUp]
         public void SetUp()
         {
-            this.Connection.CreateSchema("zeta");
+            this.Connection.CreateSchema(TestHelper.SchemaName);
 
             var sql = this.GetType().Assembly.GetResourceText("CreatePersonDb.sql", true);
             this.Connection.ExecuteCommentedScript(sql);
@@ -81,7 +82,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeTableData_ValidArguments_RunsOk()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             serializer.JsonSerializerSettings.Formatting = Formatting.Indented;
 
             // Act
@@ -97,7 +98,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeTableData_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => serializer.SerializeTableData(null));
@@ -123,7 +124,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeTableData_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => serializer.SerializeTableData("bad_table"));
@@ -140,7 +141,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeDbData_ValidArguments_RunsOk()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             serializer.JsonSerializerSettings.Converters = new List<JsonConverter>
             {
                 new StringEnumConverter(namingStrategy:new DefaultNamingStrategy()),
@@ -176,7 +177,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeDbData_TableNamePredicateIsNull_SerializesDbData()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             serializer.JsonSerializerSettings.Converters = new List<JsonConverter>
             {
                 new StringEnumConverter(namingStrategy:new DefaultNamingStrategy()),
@@ -196,7 +197,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeDbData_TableNamePredicateIsFalser_ReturnsEmptyArray()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var json = serializer.SerializeDbData(x => false);
@@ -213,7 +214,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeTableData_ValidArguments_RunsOk()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             var json = this.GetType().Assembly.GetResourceText("DeserializeTableInput.json", true);
 
             this.Connection.ExecuteSingleSql(@"DELETE FROM ""zeta"".""Photo""");
@@ -221,24 +222,27 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             this.Connection.ExecuteSingleSql(@"DELETE FROM ""zeta"".""PersonData""");
             this.Connection.ExecuteSingleSql(@"DELETE FROM ""zeta"".""Person""");
 
+            serializer.Cruder.BeforeInsertRow = (table, row, index) =>
+            {
+                var dynamicRow = (DynamicRow)row;
+
+                if (table.Name == "Person")
+                {
+                    var birthday = (string)dynamicRow.GetProperty("Birthday");
+                    var birthdayDateTime = DateTime.Parse(birthday.Substring("Month_".Length));
+                    dynamicRow.SetProperty("Birthday", birthdayDateTime);
+                }
+
+                return dynamicRow;
+            };
+
             // Act
             serializer.DeserializeTableData(
                 "Person",
-                json,
-                (tableMold, row) =>
-                {
-                    if (tableMold.Name == "Person")
-                    {
-                        var birthday = (string)row.GetValue("Birthday");
-                        var birthdayDateTime = DateTime.Parse(birthday.Substring("Month_".Length));
-                        row.SetValue("Birthday", birthdayDateTime);
-                    }
-
-                    return row;
-                });
+                json);
 
             // Assert
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             var persons = cruder.GetAllRows("Person");
 
             Assert.That(persons, Has.Count.EqualTo(2));
@@ -266,7 +270,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeTableData_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             var json = this.GetType().Assembly.GetResourceText("DeserializeTableInput.json", true);
 
             // Act
@@ -293,7 +297,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeTableData_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => serializer.DeserializeTableData("bad_table", "[]"));
@@ -306,7 +310,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeTableData_JsonIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => serializer.DeserializeTableData("Person", null));
@@ -319,7 +323,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeTableData_JsonContainsBadData_ThrowsTauDbException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             var json = this.GetType().Assembly.GetResourceText("DeserializeTableBadInput.json", true);
 
             // Act
@@ -337,35 +341,39 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeDbData_ValidArguments_RunsOk()
         {
             // Arrange
-            IDbInspector dbInspector = new NpgsqlInspector(this.Connection, "zeta");
+            IDbInspector dbInspector = new NpgsqlInspector(this.Connection, TestHelper.SchemaName);
             dbInspector.DeleteDataFromAllTables();
 
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             var json = this.GetType().Assembly.GetResourceText("DeserializeDbInput.json", true);
+
+            serializer.Cruder.BeforeInsertRow = (table, row, index) =>
+            {
+                var dynamicRow = (DynamicRow)row;
+
+                if (table.Name == "Person")
+                {
+                    var birthday = (string)dynamicRow.GetProperty("Birthday");
+                    var birthdayDateTime = DateTime.Parse(birthday.Substring("Month_".Length));
+                    dynamicRow.SetProperty("Birthday", birthdayDateTime);
+                }
+
+                return dynamicRow;
+            };
 
             // Act
             serializer.DeserializeDbData(
                 json,
-                x => x != "WorkInfo",
-                (tableMold, row) =>
-                {
-                    if (tableMold.Name == "Person")
-                    {
-                        var birthday = (string)row.GetValue("Birthday");
-                        var birthdayDateTime = DateTime.Parse(birthday.Substring("Month_".Length));
-                        row.SetValue("Birthday", birthdayDateTime);
-                    }
+                x => x != "WorkInfo");
 
-                    return row;
-                });
 
             // Assert
 
             #region Person
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "Person"), Is.EqualTo(2));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "Person"), Is.EqualTo(2));
 
-            var harvey = TestHelper.LoadRow(this.Connection, "zeta", "Person", 1);
+            var harvey = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Person", 1);
             Assert.That(harvey["Id"], Is.EqualTo(1));
             Assert.That(harvey["Tag"], Is.EqualTo(new Guid("df601c43-fb4c-4a4d-ab05-e6bf5cfa68d1")));
             Assert.That(harvey["IsChecked"], Is.EqualTo(true));
@@ -375,7 +383,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             Assert.That(harvey["Initials"], Is.EqualTo("HK"));
             Assert.That(harvey["Gender"], Is.EqualTo(100));
 
-            var maria = TestHelper.LoadRow(this.Connection, "zeta", "Person", 2);
+            var maria = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Person", 2);
             Assert.That(maria["Id"], Is.EqualTo(2));
             Assert.That(maria["Tag"], Is.EqualTo(new Guid("374d413a-6287-448d-a4c1-918067c2312c")));
             Assert.That(maria["IsChecked"], Is.EqualTo(null));
@@ -389,9 +397,9 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             #region PersonData
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "PersonData"), Is.EqualTo(2));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "PersonData"), Is.EqualTo(2));
 
-            var harveyData = TestHelper.LoadRow(this.Connection, "zeta", "PersonData", 101);
+            var harveyData = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "PersonData", 101);
             Assert.That(harveyData["Id"], Is.EqualTo(101));
             Assert.That(harveyData["PersonId"], Is.EqualTo(1));
             Assert.That(harveyData["BestAge"], Is.EqualTo(42));
@@ -401,7 +409,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             Assert.That(harveyData["UpdatedAt"], Is.EqualTo(DateTime.Parse("1996-11-02T11:12:13")));
             Assert.That(harveyData["Signature"], Is.EqualTo(new byte[] { 0xde, 0xfe, 0xca, 0x77 }));
 
-            var mariaData = TestHelper.LoadRow(this.Connection, "zeta", "PersonData", 201);
+            var mariaData = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "PersonData", 201);
             Assert.That(mariaData["Id"], Is.EqualTo(201));
             Assert.That(mariaData["PersonId"], Is.EqualTo(2));
             Assert.That(mariaData["BestAge"], Is.EqualTo(26));
@@ -415,9 +423,9 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             #region Photo
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "Photo"), Is.EqualTo(4));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "Photo"), Is.EqualTo(4));
 
-            var harveyPhoto1 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PH-1");
+            var harveyPhoto1 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PH-1");
             Assert.That(harveyPhoto1["Id"], Is.EqualTo("PH-1"));
             Assert.That(harveyPhoto1["PersonDataId"], Is.EqualTo(101));
             Assert.That(harveyPhoto1["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicHarvey1.png", true)));
@@ -427,10 +435,10 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             var dateTime = (DateTime)harveyPhoto1["TakenAt"];
             DateTimeOffset dateTimeOffset = dateTime;
             Assert.That(dateTimeOffset, Is.EqualTo(DateTimeOffset.Parse("1997-12-12T11:12:13+00:00")));
-            
+
             Assert.That(harveyPhoto1["ValidUntil"], Is.EqualTo(DateTime.Parse("1998-12-12")));
 
-            var harveyPhoto2 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PH-2");
+            var harveyPhoto2 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PH-2");
             Assert.That(harveyPhoto2["Id"], Is.EqualTo("PH-2"));
             Assert.That(harveyPhoto2["PersonDataId"], Is.EqualTo(101));
             Assert.That(harveyPhoto2["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicHarvey2.png", true)));
@@ -444,7 +452,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             Assert.That(harveyPhoto2["ValidUntil"], Is.EqualTo(DateTime.Parse("1993-09-09")));
 
-            var mariaPhoto1 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PM-1");
+            var mariaPhoto1 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PM-1");
             Assert.That(mariaPhoto1["Id"], Is.EqualTo("PM-1"));
             Assert.That(mariaPhoto1["PersonDataId"], Is.EqualTo(201));
             Assert.That(mariaPhoto1["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicMaria1.png", true)));
@@ -456,7 +464,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             Assert.That(mariaPhoto1["ValidUntil"], Is.EqualTo(DateTime.Parse("1999-04-05")));
 
-            var mariaPhoto2 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PM-2");
+            var mariaPhoto2 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PM-2");
             Assert.That(mariaPhoto2["Id"], Is.EqualTo("PM-2"));
             Assert.That(mariaPhoto2["PersonDataId"], Is.EqualTo(201));
             Assert.That(mariaPhoto2["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicMaria2.png", true)));
@@ -472,7 +480,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             #region WorkInfo
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "WorkInfo"), Is.EqualTo(0));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "WorkInfo"), Is.EqualTo(0));
 
             #endregion
         }
@@ -481,7 +489,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeDbData_JsonIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => serializer.DeserializeDbData(null));
@@ -494,35 +502,38 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void DeserializeDbData_TablePredicateIsNull_DeserializesAll()
         {
             // Arrange
-            IDbInspector dbInspector = new NpgsqlInspector(this.Connection, "zeta");
+            IDbInspector dbInspector = new NpgsqlInspector(this.Connection, TestHelper.SchemaName);
             dbInspector.DeleteDataFromAllTables();
 
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             var json = this.GetType().Assembly.GetResourceText("DeserializeDbInput.json", true);
+
+            serializer.Cruder.BeforeInsertRow = (table, row, index) =>
+            {
+                var dynamicRow = (DynamicRow)row;
+
+                if (table.Name == "Person")
+                {
+                    var birthday = (string)dynamicRow.GetProperty("Birthday");
+                    var birthdayDateTime = DateTime.Parse(birthday.Substring("Month_".Length));
+                    dynamicRow.SetProperty("Birthday", birthdayDateTime);
+                }
+
+                return dynamicRow;
+            };
 
             // Act
             serializer.DeserializeDbData(
                 json,
-                null,
-                (tableMold, row) =>
-                {
-                    if (tableMold.Name == "Person")
-                    {
-                        var birthday = (string)row.GetValue("Birthday");
-                        var birthdayDateTime = DateTime.Parse(birthday.Substring("Month_".Length));
-                        row.SetValue("Birthday", birthdayDateTime);
-                    }
-
-                    return row;
-                });
+                null);
 
             // Assert
 
             #region Person
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "Person"), Is.EqualTo(2));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "Person"), Is.EqualTo(2));
 
-            var harvey = TestHelper.LoadRow(this.Connection, "zeta", "Person", 1);
+            var harvey = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Person", 1);
             Assert.That(harvey["Id"], Is.EqualTo(1));
             Assert.That(harvey["Tag"], Is.EqualTo(new Guid("df601c43-fb4c-4a4d-ab05-e6bf5cfa68d1")));
             Assert.That(harvey["IsChecked"], Is.EqualTo(true));
@@ -532,7 +543,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             Assert.That(harvey["Initials"], Is.EqualTo("HK"));
             Assert.That(harvey["Gender"], Is.EqualTo(100));
 
-            var maria = TestHelper.LoadRow(this.Connection, "zeta", "Person", 2);
+            var maria = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Person", 2);
             Assert.That(maria["Id"], Is.EqualTo(2));
             Assert.That(maria["Tag"], Is.EqualTo(new Guid("374d413a-6287-448d-a4c1-918067c2312c")));
             Assert.That(maria["IsChecked"], Is.EqualTo(null));
@@ -546,9 +557,9 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             #region PersonData
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "PersonData"), Is.EqualTo(2));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "PersonData"), Is.EqualTo(2));
 
-            var harveyData = TestHelper.LoadRow(this.Connection, "zeta", "PersonData", 101);
+            var harveyData = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "PersonData", 101);
             Assert.That(harveyData["Id"], Is.EqualTo(101));
             Assert.That(harveyData["PersonId"], Is.EqualTo(1));
             Assert.That(harveyData["BestAge"], Is.EqualTo(42));
@@ -558,7 +569,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             Assert.That(harveyData["UpdatedAt"], Is.EqualTo(DateTime.Parse("1996-11-02T11:12:13")));
             Assert.That(harveyData["Signature"], Is.EqualTo(new byte[] { 0xde, 0xfe, 0xca, 0x77 }));
 
-            var mariaData = TestHelper.LoadRow(this.Connection, "zeta", "PersonData", 201);
+            var mariaData = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "PersonData", 201);
             Assert.That(mariaData["Id"], Is.EqualTo(201));
             Assert.That(mariaData["PersonId"], Is.EqualTo(2));
             Assert.That(mariaData["BestAge"], Is.EqualTo(26));
@@ -572,21 +583,21 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             #region Photo
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "Photo"), Is.EqualTo(4));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "Photo"), Is.EqualTo(4));
 
-            var harveyPhoto1 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PH-1");
+            var harveyPhoto1 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PH-1");
             Assert.That(harveyPhoto1["Id"], Is.EqualTo("PH-1"));
             Assert.That(harveyPhoto1["PersonDataId"], Is.EqualTo(101));
             Assert.That(harveyPhoto1["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicHarvey1.png", true)));
             Assert.That(harveyPhoto1["ContentThumbnail"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicHarvey1Thumb.png", true)));
 
-            var dateTime = (DateTime) harveyPhoto1["TakenAt"];
+            var dateTime = (DateTime)harveyPhoto1["TakenAt"];
             DateTimeOffset dateTimeOffset = dateTime;
             Assert.That(dateTimeOffset, Is.EqualTo(DateTimeOffset.Parse("1997-12-12T11:12:13+00:00")));
 
             Assert.That(harveyPhoto1["ValidUntil"], Is.EqualTo(DateTime.Parse("1998-12-12")));
 
-            var harveyPhoto2 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PH-2");
+            var harveyPhoto2 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PH-2");
             Assert.That(harveyPhoto2["Id"], Is.EqualTo("PH-2"));
             Assert.That(harveyPhoto2["PersonDataId"], Is.EqualTo(101));
             Assert.That(harveyPhoto2["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicHarvey2.png", true)));
@@ -598,7 +609,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             Assert.That(harveyPhoto2["ValidUntil"], Is.EqualTo(DateTime.Parse("1993-09-09")));
 
-            var mariaPhoto1 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PM-1");
+            var mariaPhoto1 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PM-1");
             Assert.That(mariaPhoto1["Id"], Is.EqualTo("PM-1"));
             Assert.That(mariaPhoto1["PersonDataId"], Is.EqualTo(201));
             Assert.That(mariaPhoto1["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicMaria1.png", true)));
@@ -610,7 +621,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             Assert.That(mariaPhoto1["ValidUntil"], Is.EqualTo(DateTime.Parse("1999-04-05")));
 
-            var mariaPhoto2 = TestHelper.LoadRow(this.Connection, "zeta", "Photo", "PM-2");
+            var mariaPhoto2 = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "Photo", "PM-2");
             Assert.That(mariaPhoto2["Id"], Is.EqualTo("PM-2"));
             Assert.That(mariaPhoto2["PersonDataId"], Is.EqualTo(201));
             Assert.That(mariaPhoto2["Content"], Is.EqualTo(this.GetType().Assembly.GetResourceBytes("PicMaria2.png", true)));
@@ -626,9 +637,9 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
 
             #region WorkInfo
 
-            Assert.That(TestHelper.GetTableRowCount(this.Connection, "zeta", "WorkInfo"), Is.EqualTo(2));
+            Assert.That(TestHelper.GetTableRowCount(this.Connection, TestHelper.SchemaName, "WorkInfo"), Is.EqualTo(2));
 
-            var harveyWorkInfo = TestHelper.LoadRow(this.Connection, "zeta", "WorkInfo", 1001);
+            var harveyWorkInfo = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "WorkInfo", 1001);
             Assert.That(harveyWorkInfo["Id"], Is.EqualTo(1001));
             Assert.That(harveyWorkInfo["PersonId"], Is.EqualTo(1));
             Assert.That(harveyWorkInfo["PositionCode"], Is.EqualTo("Fixer"));
@@ -642,7 +653,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             Assert.That(harveyWorkInfo["WeekendCoef"], Is.EqualTo(3.7));
             Assert.That(harveyWorkInfo["Url"], Is.EqualTo("https://example.com/wolf"));
 
-            var mariaWorkInfo = TestHelper.LoadRow(this.Connection, "zeta", "WorkInfo", 2001);
+            var mariaWorkInfo = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "WorkInfo", 2001);
             Assert.That(mariaWorkInfo["Id"], Is.EqualTo(2001));
             Assert.That(mariaWorkInfo["PersonId"], Is.EqualTo(2));
             Assert.That(mariaWorkInfo["PositionCode"], Is.EqualTo("Lover"));
@@ -657,16 +668,17 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
             Assert.That(mariaWorkInfo["Url"], Is.EqualTo("https://example.com/fabienne"));
 
             #endregion
+
         }
 
         [Test]
         public void DeserializeDbData_TablePredicateReturnsUnknownTable_ThrowsTauDbException()
         {
             // Arrange
-            IDbInspector dbInspector = new NpgsqlInspector(this.Connection, "zeta");
+            IDbInspector dbInspector = new NpgsqlInspector(this.Connection, TestHelper.SchemaName);
             dbInspector.DeleteDataFromAllTables();
 
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             var json = this.GetType().Assembly.GetResourceText("DeserializeDbBadInput.json", true);
 
             // Act
@@ -697,7 +709,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeTableMetadata_ValidArguments_RunsOk()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             serializer.JsonSerializerSettings.Formatting = Formatting.Indented;
             serializer.JsonSerializerSettings.Converters = new JsonConverter[]
             {
@@ -716,7 +728,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeTableMetadata_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => serializer.SerializeTableMetadata(null));
@@ -742,7 +754,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeTableMetadata_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => serializer.SerializeTableMetadata("bad_table"));
@@ -759,7 +771,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeDbMetadata_ValidArguments_RunsOk()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             serializer.JsonSerializerSettings.Formatting = Formatting.Indented;
             serializer.JsonSerializerSettings.Converters = new JsonConverter[]
             {
@@ -778,7 +790,7 @@ namespace TauCode.Db.Npgsql.Tests.DbSerializer
         public void SerializeDbMetadata_PredicateIsNull_SerializesAll()
         {
             // Arrange
-            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, "zeta");
+            IDbSerializer serializer = new NpgsqlSerializer(this.Connection, TestHelper.SchemaName);
             serializer.JsonSerializerSettings.Formatting = Formatting.Indented;
             serializer.JsonSerializerSettings.Converters = new JsonConverter[]
             {

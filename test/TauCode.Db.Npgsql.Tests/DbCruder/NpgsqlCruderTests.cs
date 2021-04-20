@@ -8,6 +8,7 @@ using System.Text;
 using TauCode.Db.Data;
 using TauCode.Db.DbValueConverters;
 using TauCode.Db.Exceptions;
+using TauCode.Db.Model;
 using TauCode.Extensions;
 
 namespace TauCode.Db.Npgsql.Tests.DbCruder
@@ -18,7 +19,7 @@ namespace TauCode.Db.Npgsql.Tests.DbCruder
         [SetUp]
         public void SetUp()
         {
-            this.Connection.CreateSchema("zeta");
+            this.Connection.CreateSchema(TestHelper.SchemaName);
 
             var sql = this.GetType().Assembly.GetResourceText("crebase.sql", true);
             this.Connection.ExecuteCommentedScript(sql);
@@ -224,7 +225,8 @@ CREATE TABLE ""zeta"".""SmallTable""(
             Assert.That(cruder.Factory, Is.SameAs(NpgsqlUtilityFactory.Instance));
             Assert.That(cruder.SchemaName, Is.EqualTo("public"));
             Assert.That(cruder.ScriptBuilder, Is.TypeOf<NpgsqlScriptBuilder>());
-            Assert.That(cruder.RowInsertedCallback, Is.Null);
+            Assert.That(cruder.BeforeInsertRow, Is.Null);
+            Assert.That(cruder.AfterInsertRow, Is.Null);
         }
 
         [Test]
@@ -261,7 +263,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
         public void GetTableValuesConverter_ValidArgument_ReturnsProperConverter()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var converter = cruder.GetTableValuesConverter("PersonData");
@@ -275,7 +277,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
         public void GetTableValuesConverter_ArgumentIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.GetTableValuesConverter(null));
@@ -301,7 +303,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
         public void GetTableValuesConverter_NotExistingTable_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.GetTableValuesConverter("bad_table"));
@@ -318,7 +320,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
         public void ResetTables_NoArguments_RunsOk()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             cruder.GetTableValuesConverter("PersonData").SetColumnConverter("Id", new StringValueConverter());
             var oldDbValueConverter = cruder.GetTableValuesConverter("PersonData").GetColumnConverter("Id");
 
@@ -354,16 +356,16 @@ CREATE TABLE ""zeta"".""SmallTable""(
             };
 
             var row2 = new DynamicRow();
-            row2.SetValue("Id", new Guid("a776fd76-f2a8-4e09-9e69-b6d08e96c075"));
-            row2.SetValue("PersonId", 101);
-            row2.SetValue("Weight", 69.20m);
-            row2.SetValue("PersonMetaKey", (short)12);
-            row2.SetValue("IQ", 101.60m);
-            row2.SetValue("Temper", (short)4);
-            row2.SetValue("PersonOrdNumber", (byte)3);
-            row2.SetValue("MetricB", -3);
-            row2.SetValue("MetricA", 177);
-            row2.SetValue("NotExisting", 11);
+            row2.SetProperty("Id", new Guid("a776fd76-f2a8-4e09-9e69-b6d08e96c075"));
+            row2.SetProperty("PersonId", 101);
+            row2.SetProperty("Weight", 69.20m);
+            row2.SetProperty("PersonMetaKey", (short)12);
+            row2.SetProperty("IQ", 101.60m);
+            row2.SetProperty("Temper", (short)4);
+            row2.SetProperty("PersonOrdNumber", (byte)3);
+            row2.SetProperty("MetricB", -3);
+            row2.SetProperty("MetricA", 177);
+            row2.SetProperty("NotExisting", 11);
 
             var row3 = new
             {
@@ -405,7 +407,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
 
             this.Connection.ExecuteSingleSql(@"ALTER TABLE ""zeta"".""HealthInfo"" DROP CONSTRAINT ""FK_healthInfo_Person""");
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             for (var i = 0; i < rows.Length; i++)
@@ -414,7 +416,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
                 cruder.InsertRow("HealthInfo", row, x => x != "NotExisting");
                 var loadedRow = TestHelper.LoadRow(
                     this.Connection,
-                    "zeta",
+                    TestHelper.SchemaName,
                     "HealthInfo",
                     new Guid("a776fd76-f2a8-4e09-9e69-b6d08e96c075"));
 
@@ -428,7 +430,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
             {
                 var originalRow = rows[i];
                 var cleanOriginalRow = new DynamicRow(originalRow);
-                cleanOriginalRow.DeleteValue("NotExisting");
+                cleanOriginalRow.RemoveProperty("NotExisting");
 
                 var originalRowJson = JsonConvert.SerializeObject(cleanOriginalRow);
                 var loadedJson = JsonConvert.SerializeObject(loadedRows[i]);
@@ -443,7 +445,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
             // Arrange
             this.CreateSuperTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             dynamic row = new DynamicRow(new
             {
@@ -489,7 +491,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
             cruder.InsertRow("SuperTable", row, (Func<string, bool>)(x => true));
 
             // Assert
-            var loadedRow = TestHelper.LoadRow(this.Connection, "zeta", "SuperTable", 1);
+            var loadedRow = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "SuperTable", 1);
 
             Assert.That(loadedRow["TheGuid"], Is.EqualTo(new Guid("8e816a5f-b97c-43df-95e9-4fbfe7172dd0")));
 
@@ -551,7 +553,7 @@ CREATE TABLE ""zeta"".""SmallTable""(
 
             var insertedRows = new IReadOnlyDictionary<string, object>[rows.Length];
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             using var command = this.Connection.CreateCommand();
@@ -570,7 +572,7 @@ CREATE TABLE ""zeta"".""MyTab""(
                 command.ExecuteNonQuery();
 
                 cruder.InsertRow("MyTab", row, x => false);
-                var insertedRow = TestHelper.LoadRow(this.Connection, "zeta", "MyTab", 1);
+                var insertedRow = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "MyTab", 1);
                 insertedRows[i] = insertedRow;
 
                 this.Connection.ExecuteSingleSql(@"DROP TABLE ""zeta"".""MyTab""");
@@ -605,7 +607,7 @@ CREATE TABLE ""zeta"".""MyTab""(
             };
 
             var row2 = new DynamicRow();
-            row2.SetValue("NonExisting", 777);
+            row2.SetProperty("NonExisting", 777);
 
             var row3 = new
             {
@@ -626,7 +628,7 @@ CREATE TABLE ""zeta"".""MyTab""(
             };
 
             IReadOnlyDictionary<string, object>[] insertedRows = new IReadOnlyDictionary<string, object>[rows.Length];
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             for (var i = 0; i < rows.Length; i++)
@@ -634,11 +636,11 @@ CREATE TABLE ""zeta"".""MyTab""(
                 var row = rows[i];
                 cruder.InsertRow("SmallTable", row, x => false);
 
-                var lastIdentity = (int)this.Connection.GetLastIdentity("zeta", "SmallTable", "Id");
+                var lastIdentity = (int)this.Connection.GetLastIdentity(TestHelper.SchemaName, "SmallTable", "Id");
 
                 var insertedRow = TestHelper.LoadRow(
                     this.Connection,
-                    "zeta",
+                    TestHelper.SchemaName,
                     "SmallTable",
                     lastIdentity);
 
@@ -668,13 +670,13 @@ CREATE TABLE ""zeta"".""MyTab""(
                 NotExisting = 100,
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.InsertRow("SmallTable", row));
 
             // Assert
-            Assert.That(ex, Has.Message.EqualTo($"Column 'NotExisting' does not exist."));
+            Assert.That(ex, Has.Message.EqualTo($"Column 'NotExisting' not found in table 'SmallTable'."));
         }
 
         [Test]
@@ -694,7 +696,7 @@ CREATE TABLE ""zeta"".""MyTab""(
         public void InsertRow_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.InsertRow("bad_table", new object()));
@@ -707,7 +709,7 @@ CREATE TABLE ""zeta"".""MyTab""(
         public void InsertRow_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.InsertRow(null, new object(), x => true));
@@ -720,7 +722,7 @@ CREATE TABLE ""zeta"".""MyTab""(
         public void InsertRow_RowIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.InsertRow("HealthInfo", null, x => true));
@@ -734,7 +736,7 @@ CREATE TABLE ""zeta"".""MyTab""(
         {
             // Arrange
             this.CreateSuperTable();
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             var row = new
             {
                 TheGuid = DBNull.Value,
@@ -746,7 +748,7 @@ CREATE TABLE ""zeta"".""MyTab""(
             // Assert
             Assert.That(ex,
                 Has.Message.EqualTo(
-                    "Could not transform value '' of type 'System.DBNull'. Table name is 'SuperTable'. Column name is 'TheGuid'."));
+                    "Failed to apply value to DB command. See inner exception for details. Table: 'SuperTable', column: 'TheGuid', value: 'System.DBNull'."));
         }
 
         #endregion
@@ -772,16 +774,16 @@ CREATE TABLE ""zeta"".""MyTab""(
             };
 
             var row2 = new DynamicRow();
-            row2.SetValue("Id", new Guid("22222222-2222-2222-2222-222222222222"));
-            row2.SetValue("PersonId", 101);
-            row2.SetValue("Weight", 69.20m);
-            row2.SetValue("PersonMetaKey", (short)12);
-            row2.SetValue("IQ", 101.60m);
-            row2.SetValue("Temper", (short)4);
-            row2.SetValue("PersonOrdNumber", (byte)3);
-            row2.SetValue("MetricB", -3);
-            row2.SetValue("MetricA", 177);
-            row2.SetValue("NotExisting", 7);
+            row2.SetProperty("Id", new Guid("22222222-2222-2222-2222-222222222222"));
+            row2.SetProperty("PersonId", 101);
+            row2.SetProperty("Weight", 69.20m);
+            row2.SetProperty("PersonMetaKey", (short)12);
+            row2.SetProperty("IQ", 101.60m);
+            row2.SetProperty("Temper", (short)4);
+            row2.SetProperty("PersonOrdNumber", (byte)3);
+            row2.SetProperty("MetricB", -3);
+            row2.SetProperty("MetricA", 177);
+            row2.SetProperty("NotExisting", 7);
 
             var row3 = new
             {
@@ -821,7 +823,7 @@ CREATE TABLE ""zeta"".""MyTab""(
 
             this.Connection.ExecuteSingleSql(@"ALTER TABLE ""zeta"".""HealthInfo"" DROP CONSTRAINT ""FK_healthInfo_Person""");
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             cruder.InsertRows("HealthInfo", rows, x => x != "NotExisting");
@@ -841,7 +843,7 @@ ORDER BY
             for (var i = 0; i < loadedRows.Count; i++)
             {
                 var cleanOriginalRow = new DynamicRow(rows[i]);
-                cleanOriginalRow.DeleteValue("NotExisting");
+                cleanOriginalRow.RemoveProperty("NotExisting");
 
                 var json = JsonConvert.SerializeObject(cleanOriginalRow, Formatting.Indented);
                 var loadedJson = JsonConvert.SerializeObject(loadedRows[i], Formatting.Indented);
@@ -867,7 +869,7 @@ ORDER BY
                 row3,
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             cruder.InsertRows("SmallTable", rows, x => false);
@@ -912,7 +914,7 @@ ORDER BY
 
             var rows = new[] { row1, row2 };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             cruder.InsertRows("SmallTable", rows, x => false);
@@ -958,7 +960,7 @@ ORDER BY
 
             var rows = new[] { row1, row2 };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             cruder.InsertRows("SmallTable", rows);
@@ -1008,13 +1010,13 @@ ORDER BY
 
             var rows = new[] { row1, row2 };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.InsertRows("SmallTable", rows, x => true));
 
             // Assert
-            Assert.That(ex, Has.Message.EqualTo("Column 'NotExisting' does not exist."));
+            Assert.That(ex, Has.Message.EqualTo("Column 'NotExisting' not found in table 'SmallTable'."));
         }
 
         [Test]
@@ -1035,13 +1037,13 @@ ORDER BY
 
             var rows = new object[] { row1, row2 };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.InsertRows("SmallTable", rows, x => true));
 
             // Assert
-            Assert.That(ex, Has.Message.StartsWith("'values' does not contain property representing column 'TheInt'."));
+            Assert.That(ex, Has.Message.StartsWith("'values' does not contain property representing column 'TheInt' of table 'SmallTable'."));
         }
 
         [Test]
@@ -1061,7 +1063,7 @@ ORDER BY
         public void InsertRows_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.InsertRows("bad_table", new object[] { }));
@@ -1074,7 +1076,7 @@ ORDER BY
         public void InsertRows_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.InsertRows(null, new object[] { }));
@@ -1087,7 +1089,7 @@ ORDER BY
         public void InsertRows_RowsIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.InsertRows("HealthInfo", null));
@@ -1108,7 +1110,7 @@ ORDER BY
                 null,
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.InsertRows("SmallTable", rows));
@@ -1136,7 +1138,7 @@ ORDER BY
                 },
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.InsertRows("SmallTable", rows));
@@ -1144,7 +1146,7 @@ ORDER BY
             // Assert
             Assert.That(ex,
                 Has.Message.StartWith(
-                    "Could not transform value '' of type 'System.DBNull'. Table name is 'SmallTable'. Column name is 'TheInt'."));
+                    "Failed to apply value to DB command. See inner exception for details. Table: 'SmallTable', column: 'TheInt', value: 'System.DBNull'."));
         }
 
         #endregion
@@ -1157,22 +1159,23 @@ ORDER BY
             // Arrange
             this.CreateSmallTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             var sb1 = new StringBuilder();
 
             // Act
-            Action<string, object, int> callback = (tableName, row, index) =>
+            Func<TableMold, object, int, object> callback = (tableMold, row, index) =>
             {
-                sb1.Append($"Table name: {tableName}; index: {index}");
+                sb1.Append($"Table name: {tableMold.Name}; index: {index}");
+                return row;
             };
 
-            cruder.RowInsertedCallback = callback;
+            cruder.BeforeInsertRow = callback;
 
             cruder.InsertRow("SmallTable", new object());
-            var callback1 = cruder.RowInsertedCallback;
+            var callback1 = cruder.BeforeInsertRow;
 
-            cruder.RowInsertedCallback = null;
-            var callback2 = cruder.RowInsertedCallback;
+            cruder.BeforeInsertRow = null;
+            var callback2 = cruder.BeforeInsertRow;
 
             // Assert
             var s = sb1.ToString();
@@ -1188,20 +1191,26 @@ ORDER BY
             // Arrange
             this.CreateSmallTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             var sb1 = new StringBuilder();
 
             // Act
-            cruder.RowInsertedCallback = (tableName, row, index) =>
+            cruder.BeforeInsertRow = (table, row, index) =>
             {
-                sb1.Append($"Table name: {tableName}; index: {index}");
+                sb1.Append($"Before insertion. Table name: {table.Name}; index: {index}. ");
+                return row;
+            };
+
+            cruder.AfterInsertRow = (table, row, index) =>
+            {
+                sb1.Append($"After insertion. Table name: {table.Name}; index: {index}.");
             };
 
             cruder.InsertRow("SmallTable", new object());
 
             // Assert
             var s = sb1.ToString();
-            Assert.That(s, Is.EqualTo("Table name: SmallTable; index: 0"));
+            Assert.That(s, Is.EqualTo("Before insertion. Table name: SmallTable; index: 0. After insertion. Table name: SmallTable; index: 0."));
         }
 
         [Test]
@@ -1210,13 +1219,16 @@ ORDER BY
             // Arrange
             this.CreateSmallTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             var sb1 = new StringBuilder();
 
+            // justified_todo: name of this ut and others like this.
+
             // Act
-            cruder.RowInsertedCallback = (tableName, row, index) =>
+            cruder.BeforeInsertRow = (table, row, index) =>
             {
-                sb1.AppendLine($"Table name: {tableName}; index: {index}; int: {((dynamic)row).TheInt}");
+                sb1.AppendLine($"Table name: {table.Name}; index: {index}; int: {((dynamic)row).TheInt}");
+                return row;
             };
 
             cruder.InsertRows(
@@ -1250,7 +1262,7 @@ Table name: SmallTable; index: 1; int: 22
             // Arrange
             this.CreateSuperTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             dynamic row = new DynamicRow(new
             {
@@ -1313,7 +1325,7 @@ Table name: SmallTable; index: 1; int: 22
             // Arrange
             this.CreateSuperTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             dynamic row = new DynamicRow(new
             {
@@ -1406,7 +1418,7 @@ Table name: SmallTable; index: 1; int: 22
             // Arrange
             this.CreateSuperTable();
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             dynamic row = new DynamicRow(new
             {
@@ -1510,7 +1522,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetRow_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.GetRow("bad_table", 1));
@@ -1523,7 +1535,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetRow_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.GetRow(null, 1));
@@ -1536,7 +1548,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetRow_IdIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.GetRow("some_table", null));
@@ -1551,7 +1563,7 @@ Table name: SmallTable; index: 1; int: 22
         {
             // Arrange
             this.Connection.ExecuteSingleSql(@"CREATE TABLE ""zeta"".""dummy""(Foo int)"); // no PK
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>((() => cruder.GetRow("dummy", 1)));
@@ -1565,7 +1577,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetRow_TablePrimaryKeyIsMultiColumn_ThrowsArgumentException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>((() => cruder.GetRow("Person", "the_id")));
@@ -1580,7 +1592,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetRow_IdNotFound_ReturnsNull()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             const int nonExistingId = 133;
 
             // Act
@@ -1594,7 +1606,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetRow_SelectorIsFalser_ThrowsArgumentException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.GetRow("NumericData", 111, x => false));
@@ -1615,7 +1627,7 @@ Table name: SmallTable; index: 1; int: 22
             var insertSql = this.GetType().Assembly.GetResourceText("InsertRows.sql", true);
             this.Connection.ExecuteCommentedScript(insertSql);
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var rows = cruder.GetAllRows("DateData", x => x == "Moment");
@@ -1623,11 +1635,11 @@ Table name: SmallTable; index: 1; int: 22
             // Assert
             var row = (DynamicRow)rows[0];
             Assert.That(row.GetDynamicMemberNames().Count(), Is.EqualTo(1));
-            Assert.That(row.GetValue("Moment"), Is.EqualTo(DateTimeOffset.Parse("2020-01-01T05:05:05+00:00")));
+            Assert.That(row.GetProperty("Moment"), Is.EqualTo(DateTimeOffset.Parse("2020-01-01T05:05:05+00:00")));
 
             row = rows[1];
             Assert.That(row.GetDynamicMemberNames().Count(), Is.EqualTo(1));
-            Assert.That(row.GetValue("Moment"), Is.EqualTo(DateTimeOffset.Parse("2020-02-02T06:06:06+00:00")));
+            Assert.That(row.GetProperty("Moment"), Is.EqualTo(DateTimeOffset.Parse("2020-02-02T06:06:06+00:00")));
         }
 
         [Test]
@@ -1637,7 +1649,7 @@ Table name: SmallTable; index: 1; int: 22
             var insertSql = this.GetType().Assembly.GetResourceText("InsertRows.sql", true);
             this.Connection.ExecuteCommentedScript(insertSql);
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var rows = cruder.GetAllRows("DateData", x => true);
@@ -1669,7 +1681,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetAllRows_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.GetAllRows("bad_table"));
@@ -1682,7 +1694,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetAllRows_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.GetAllRows(null));
@@ -1695,7 +1707,7 @@ Table name: SmallTable; index: 1; int: 22
         public void GetAllRows_SelectorIsFalser_ThrowsArgumentException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.GetAllRows("HealthInfo", x => false));
@@ -1726,12 +1738,12 @@ Table name: SmallTable; index: 1; int: 22
             };
 
             var update2 = new DynamicRow();
-            update2.SetValue("Id", id);
-            update2.SetValue("TheTinyInt", (byte)2);
-            update2.SetValue("TheSmallInt", (short)22);
-            update2.SetValue("TheInt", 222);
-            update2.SetValue("TheBigInt", 2222L);
-            update2.SetValue("NotExisting", 777);
+            update2.SetProperty("Id", id);
+            update2.SetProperty("TheTinyInt", (byte)2);
+            update2.SetProperty("TheSmallInt", (short)22);
+            update2.SetProperty("TheInt", 222);
+            update2.SetProperty("TheBigInt", 2222L);
+            update2.SetProperty("NotExisting", 777);
 
             var update3 = new
             {
@@ -1763,7 +1775,7 @@ Table name: SmallTable; index: 1; int: 22
 
             var loadedRows = new IReadOnlyDictionary<string, object>[updates.Length];
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             for (var i = 0; i < updates.Length; i++)
@@ -1781,7 +1793,7 @@ Table name: SmallTable; index: 1; int: 22
                         "TheInt",
                         "TheBigInt"));
 
-                var loadedRow = TestHelper.LoadRow(this.Connection, "zeta", "SuperTable", 1);
+                var loadedRow = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "SuperTable", 1);
                 loadedRows[i] = loadedRow;
 
                 this.Connection.ExecuteSingleSql(@"DROP TABLE ""zeta"".""SuperTable""");
@@ -1885,13 +1897,13 @@ Table name: SmallTable; index: 1; int: 22
                 NotExisting = 777,
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             cruder.UpdateRow("SuperTable", update, x => x != "NotExisting");
 
             // Assert
-            var loadedRow = TestHelper.LoadRow(this.Connection, "zeta", "SuperTable", 1);
+            var loadedRow = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "SuperTable", 1);
 
             Assert.That(loadedRow["TheGuid"], Is.EqualTo(new Guid("22222222-2222-2222-2222-222222222222")));
 
@@ -1952,7 +1964,7 @@ Table name: SmallTable; index: 1; int: 22
         public void UpdateRow_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.UpdateRow("bad_table", new { Id = 1, Name = 2 }));
@@ -1965,7 +1977,7 @@ Table name: SmallTable; index: 1; int: 22
         public void UpdateRow_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -1979,7 +1991,7 @@ Table name: SmallTable; index: 1; int: 22
         public void UpdateRow_RowUpdateIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -2041,15 +2053,15 @@ Table name: SmallTable; index: 1; int: 22
             };
 
             var update = new DynamicRow(updateMold);
-            update.DeleteValue("NotExisting");
+            update.RemoveProperty("NotExisting");
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             cruder.UpdateRow("SuperTable", update, null);
 
             // Assert
-            var loadedRow = TestHelper.LoadRow(this.Connection, "zeta", "SuperTable", 1);
+            var loadedRow = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "SuperTable", 1);
 
             Assert.That(loadedRow["TheGuid"], Is.EqualTo(new Guid("22222222-2222-2222-2222-222222222222")));
 
@@ -2105,7 +2117,7 @@ Table name: SmallTable; index: 1; int: 22
                 TheGuid = new Guid("22222222-2222-2222-2222-222222222222"),
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.UpdateRow("SuperTable", update));
@@ -2127,7 +2139,7 @@ Table name: SmallTable; index: 1; int: 22
                 Id = 1,
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.UpdateRow("SuperTable", update));
@@ -2150,7 +2162,7 @@ Table name: SmallTable; index: 1; int: 22
                 TheGuid = Guid.NewGuid(),
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>(() => cruder.UpdateRow("SuperTable", update));
@@ -2173,13 +2185,13 @@ Table name: SmallTable; index: 1; int: 22
                 NotExisting = 7,
             };
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.UpdateRow("SuperTable", update));
 
             // Assert
-            Assert.That(ex, Has.Message.EqualTo("Column 'NotExisting' does not exist."));
+            Assert.That(ex, Has.Message.EqualTo("Column 'NotExisting' not found in table 'SuperTable'."));
         }
 
         [Test]
@@ -2188,7 +2200,7 @@ Table name: SmallTable; index: 1; int: 22
         {
             // Arrange
             this.Connection.ExecuteSingleSql(@"CREATE TABLE ""zeta"".""dummy""(Foo int)"); // no PK
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>((() => cruder.UpdateRow("dummy", new { Foo = 1 })));
@@ -2202,7 +2214,7 @@ Table name: SmallTable; index: 1; int: 22
         public void UpdateRow_TablePrimaryKeyIsMultiColumn_ThrowsArgumentException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentException>((() => cruder.UpdateRow("Person", new { Key = 3 })));
@@ -2225,13 +2237,13 @@ Table name: SmallTable; index: 1; int: 22
             const int id = 1;
             this.Connection.ExecuteSingleSql(@$"INSERT INTO ""zeta"".""MediumTable""(""Id"") VALUES ({id})");
 
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var deleted = cruder.DeleteRow("MediumTable", id);
 
             // Assert
-            var deletedRow = TestHelper.LoadRow(this.Connection, "zeta", "MediumTable", id);
+            var deletedRow = TestHelper.LoadRow(this.Connection, TestHelper.SchemaName, "MediumTable", id);
 
             Assert.That(deleted, Is.True);
             Assert.That(deletedRow, Is.Null);
@@ -2242,7 +2254,7 @@ Table name: SmallTable; index: 1; int: 22
         {
             // Arrange
             this.CreateMediumTable();
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
             var notExistingId = 11;
 
             // Act
@@ -2269,7 +2281,7 @@ Table name: SmallTable; index: 1; int: 22
         public void DeleteRow_TableDoesNotExist_ThrowsTauDbException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<TauDbException>(() => cruder.DeleteRow("bad_table", 17));
@@ -2282,7 +2294,7 @@ Table name: SmallTable; index: 1; int: 22
         public void DeleteRow_TableNameIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.DeleteRow(null, 11));
@@ -2295,7 +2307,7 @@ Table name: SmallTable; index: 1; int: 22
         public void DeleteRow_IdIsNull_ThrowsArgumentNullException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
             var ex = Assert.Throws<ArgumentNullException>(() => cruder.DeleteRow("MediumTable", null));
@@ -2309,21 +2321,20 @@ Table name: SmallTable; index: 1; int: 22
         {
             // Arrange
             this.Connection.ExecuteSingleSql(@"CREATE TABLE ""zeta"".""dummy""(Foo int)"); // no PK
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
-            var ex = Assert.Throws<ArgumentException>((() => cruder.DeleteRow("dummy", 1)));
+            var ex = Assert.Throws<TauDbException>((() => cruder.DeleteRow("dummy", 1)));
 
             // Assert
             Assert.That(ex, Has.Message.StartsWith("Table 'dummy' does not have a primary key."));
-            Assert.That(ex.ParamName, Is.EqualTo("tableName"));
         }
 
         [Test]
         public void DeleteRow_PrimaryKeyIsMultiColumn_ThrowsArgumentException()
         {
             // Arrange
-            IDbCruder cruder = new NpgsqlCruder(this.Connection, "zeta");
+            IDbCruder cruder = new NpgsqlCruder(this.Connection, TestHelper.SchemaName);
 
             // Act
 

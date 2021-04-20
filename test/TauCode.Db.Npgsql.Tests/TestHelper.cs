@@ -11,6 +11,8 @@ namespace TauCode.Db.Npgsql.Tests
     {
         internal const string ConnectionString = @"User ID=postgres;Password=1234;Host=localhost;Port=5432;Database=my_tests";
 
+        internal const string SchemaName = "zeta";
+
         internal static NpgsqlConnection CreateConnection()
         {
             var connection = new NpgsqlConnection(ConnectionString);
@@ -20,7 +22,7 @@ namespace TauCode.Db.Npgsql.Tests
 
         internal static void PurgeDatabase(this NpgsqlConnection connection)
         {
-            new NpgsqlSchemaExplorer(connection).PurgeDatabase();
+            new NpgsqlSchemaExplorer(connection).DropAllSchemas();
         }
 
         internal static void WriteDiff(string actual, string expected, string directory, string fileExtension, string reminder)

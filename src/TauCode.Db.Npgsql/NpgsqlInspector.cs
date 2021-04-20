@@ -13,8 +13,5 @@ namespace TauCode.Db.Npgsql
         protected NpgsqlConnection NpgsqlConnection => (NpgsqlConnection)this.Connection;
 
         public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
-
-        protected override IDbSchemaExplorer CreateSchemaExplorer(IDbConnection connection) =>
-            new NpgsqlSchemaExplorer(this.NpgsqlConnection);
     }
 }

@@ -1,8 +1,8 @@
-﻿using System;
-using System.Data;
-using Npgsql;
+﻿using Npgsql;
 using NpgsqlTypes;
+using System.Data;
 using TauCode.Db.DbValueConverters;
+using TauCode.Db.Exceptions;
 using TauCode.Db.Model;
 
 namespace TauCode.Db.Npgsql
@@ -15,7 +15,7 @@ namespace TauCode.Db.Npgsql
         }
 
         public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
-        protected override IDbValueConverter CreateDbValueConverter(ColumnMold column)
+        protected override IDbValueConverter CreateDbValueConverter(string tableName, ColumnMold column)
         {
             switch (column.Type.Name)
             {
@@ -62,7 +62,7 @@ namespace TauCode.Db.Npgsql
                     return new ByteArrayValueConverter();
 
                 default:
-                    throw new NotImplementedException();
+                    throw this.CreateColumnTypeNotSupportedException(tableName, column.Name, column.Type.Name);
             }
         }
 
@@ -121,7 +121,28 @@ namespace TauCode.Db.Npgsql
                     return new NpgsqlParameter(parameterName, NpgsqlDbType.Bytea);
 
                 default:
-                    throw new NotImplementedException();
+                    throw new TauDbException($"Type '{column.Type.Name}' not supported. Table: '{tableName}', column: '{column.Name}'.");
+            }
+        }
+
+        protected override void FitParameterValue(IDbDataParameter parameter)
+        {
+            var value = parameter.Value;
+
+            int? length = null;
+
+            if (value is string s)
+            {
+                length = s.Length;
+            }
+            else if (value is byte[] arr)
+            {
+                length = arr.Length;
+            }
+
+            if (length.HasValue)
+            {
+                parameter.Size = length.Value;
             }
         }
     }
