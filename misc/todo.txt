@@ -1,0 +1,7 @@
+﻿2021-04-17
+==========
+    1. Copy "EconeraTesting" ut-s (from TauCode.Db.SqlClient). Try to invoke a "value will be truncated" exception (SQLite seems to not show such behavior)
+
+2022-07-26
+==========
+    1. Update to fresh PostgreSQL .NET package.
