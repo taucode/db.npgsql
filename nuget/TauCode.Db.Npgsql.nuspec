@@ -2,11 +2,11 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>TauCode.Db.Npgsql</id>
-    <version>1.3.2.7-dev-2021-04-22-21-47</version>
+    <version>1.3.7-alpha.1.2022-07-26.21-42</version>
     <authors>TauCode</authors>
     <owners>TauCode</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <license type="file">LICENSE.txt</license>
+    <license type="file">LICENSE</license>
     <projectUrl>https://github.com/taucode/taucode.db.npgsql</projectUrl>
     <repository type="git" url="https://github.com/taucode/taucode.db.npgsql"/>
     <description>PostgreSQL-specific database functionality</description>
@@ -17,12 +17,12 @@
     <dependencies>
       <group targetFramework=".NETStandard2.1">
         <dependency id="Npgsql" version="5.0.4" />
-        <dependency id="TauCode.Db" version="1.3.2.7-dev-2021-04-20-16-47" />
+        <dependency id="TauCode.Db" version="1.3.7" />
       </group>
     </dependencies>
   </metadata>
   <files>
-    <file src="..\LICENSE.txt" target="" />
+    <file src="..\LICENSE*" target="" />
     <file src="..\src\TauCode.Db.Npgsql\bin\Release\netstandard2.1\TauCode.Db.Npgsql.dll" target="lib\netstandard2.1" />
     <file src="..\src\TauCode.Db.Npgsql\bin\Release\netstandard2.1\TauCode.Db.Npgsql.pdb" target="lib\netstandard2.1" />
   </files>
