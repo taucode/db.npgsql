@@ -18,3 +18,7 @@
 ==========
     1. Refactored.
 
+2022-08-06
+==========
+    1. Moved to .NET 6.
+    2. Released 1.5.0
