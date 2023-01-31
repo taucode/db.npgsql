@@ -1,9 +1,8 @@
 ﻿using Npgsql;
 using NUnit.Framework;
-using System;
 using TauCode.Db.Exceptions;
 
-namespace TauCode.Db.Npgsql.Tests.DbInspector
+namespace TauCode.Db.Npgsql.LocalTests.DbInspector
 {
     [TestFixture]
     public class NpgsqlInspectorTests : TestBase

@@ -1,100 +1,97 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Npgsql;
+﻿using Npgsql;
 using TauCode.Db.Model;
 using TauCode.Extensions;
 
-namespace TauCode.Db.Npgsql
+namespace TauCode.Db.Npgsql;
+
+public class NpgsqlSchemaExplorer : DbSchemaExplorerBase
 {
-    public class NpgsqlSchemaExplorer : DbSchemaExplorerBase
+    public NpgsqlSchemaExplorer(NpgsqlConnection connection)
+        : base(connection, "\"\"")
     {
-        public NpgsqlSchemaExplorer(NpgsqlConnection connection)
-            : base(connection, "\"\"")
-        {
-        }
+    }
 
-        protected override ColumnMold ColumnInfoToColumn(ColumnInfo columnInfo)
+    protected override ColumnMold ColumnInfoToColumn(ColumnInfo columnInfo)
+    {
+        var column = new ColumnMold
         {
-            var column = new ColumnMold
+            Name = columnInfo.Name,
+            Type = new DbTypeMold
             {
-                Name = columnInfo.Name,
-                Type = new DbTypeMold
-                {
-                    Name = columnInfo.TypeName,
-                    Size = columnInfo.Size,
-                    Precision = columnInfo.Precision,
-                    Scale = columnInfo.Scale,
-                },
-                IsNullable = columnInfo.IsNullable,
-            };
+                Name = columnInfo.TypeName,
+                Size = columnInfo.Size,
+                Precision = columnInfo.Precision,
+                Scale = columnInfo.Scale,
+            },
+            IsNullable = columnInfo.IsNullable,
+        };
 
-            if (column.Type.Name.IsIn(
+        if (column.Type.Name.IsIn(
                 "smallint",
                 "integer",
                 "bigint",
                 "double precision",
                 "real"))
-            {
-                column.Type.Precision = null;
-                column.Type.Scale = null;
-            }
-
-            return column;
+        {
+            column.Type.Precision = null;
+            column.Type.Scale = null;
         }
 
-        protected IndexMold BuildIndexMold(string tableName, string indexName, string indexDefinition)
+        return column;
+    }
+
+    protected IndexMold BuildIndexMold(string tableName, string indexName, string indexDefinition)
+    {
+        var isUnique = indexDefinition.StartsWith("CREATE UNIQUE", StringComparison.InvariantCultureIgnoreCase);
+
+        var left = indexDefinition.IndexOf('(');
+        var right = indexDefinition.IndexOf(')');
+
+        var columnsString = indexDefinition.Substring(left + 1, right - left - 1);
+        var columnDefinitions = columnsString.Split(',').Select(x => x.Trim()).ToList();
+
+        var columns = new List<IndexColumnMold>();
+
+        foreach (var columnDefinition in columnDefinitions)
         {
-            var isUnique = indexDefinition.StartsWith("CREATE UNIQUE", StringComparison.InvariantCultureIgnoreCase);
-
-            var left = indexDefinition.IndexOf('(');
-            var right = indexDefinition.IndexOf(')');
-
-            var columnsString = indexDefinition.Substring(left + 1, right - left - 1);
-            var columnDefinitions = columnsString.Split(',').Select(x => x.Trim()).ToList();
-
-            var columns = new List<IndexColumnMold>();
-
-            foreach (var columnDefinition in columnDefinitions)
+            string columnName;
+            SortDirection sortDirection;
+            if (columnDefinition.EndsWith(" DESC"))
             {
-                string columnName;
-                SortDirection sortDirection;
-                if (columnDefinition.EndsWith(" DESC"))
-                {
-                    columnName = columnDefinition.Substring(0, columnDefinition.Length - " DESC".Length);
-                    sortDirection = SortDirection.Descending;
-                }
-                else
-                {
-                    columnName = columnDefinition;
-                    sortDirection = SortDirection.Ascending;
-                }
-
-                var indexColumnMold = new IndexColumnMold
-                {
-                    Name = columnName.Replace("\"", "", StringComparison.InvariantCultureIgnoreCase),
-                    SortDirection = sortDirection,
-                };
-
-                columns.Add(indexColumnMold);
+                columnName = columnDefinition.Substring(0, columnDefinition.Length - " DESC".Length);
+                sortDirection = SortDirection.Descending;
+            }
+            else
+            {
+                columnName = columnDefinition;
+                sortDirection = SortDirection.Ascending;
             }
 
-            var indexMold = new IndexMold
+            var indexColumnMold = new IndexColumnMold
             {
-                Name = indexName,
-                TableName = tableName,
-                Columns = columns,
-                IsUnique = isUnique,
+                Name = columnName.Replace("\"", "", StringComparison.InvariantCultureIgnoreCase),
+                SortDirection = sortDirection,
             };
 
-            return indexMold;
+            columns.Add(indexColumnMold);
         }
 
-        protected override IReadOnlyList<IndexMold> GetTableIndexesImpl(string schemaName, string tableName)
+        var indexMold = new IndexMold
         {
-            using var command = this.Connection.CreateCommand();
+            Name = indexName,
+            TableName = tableName,
+            Columns = columns,
+            IsUnique = isUnique,
+        };
 
-            command.CommandText = @"
+        return indexMold;
+    }
+
+    protected override IReadOnlyList<IndexMold> GetTableIndexesImpl(string schemaName, string tableName)
+    {
+        using var command = this.Connection.CreateCommand();
+
+        command.CommandText = @"
 SELECT
     IX.indexname IndexName,
     IX.indexdef  IndexDef
@@ -104,52 +101,51 @@ WHERE
     IX.schemaname = @p_schema AND
     IX.tablename = @p_tableName
 ";
-            command.AddParameterWithValue("p_schema", schemaName);
-            command.AddParameterWithValue("p_tableName", tableName);
+        command.AddParameterWithValue("p_schema", schemaName);
+        command.AddParameterWithValue("p_tableName", tableName);
 
-            var rows = command.GetCommandRows();
+        var rows = command.GetCommandRows();
 
-            return rows
-                .Select(x => this.BuildIndexMold(
-                    tableName,
-                    (string)x.IndexName,
-                    (string)x.IndexDef))
-                .OrderBy(x => x.Name)
-                .ToList();
-        }
+        return rows
+            .Select(x => this.BuildIndexMold(
+                tableName,
+                (string)x.IndexName,
+                (string)x.IndexDef))
+            .OrderBy(x => x.Name)
+            .ToList();
+    }
 
-        protected override IList<string> GetAdditionalColumnTableColumnNames()
+    protected override IList<string> GetAdditionalColumnTableColumnNames()
+    {
+        return new List<string>()
         {
-            return new List<string>()
-            {
-                "identity_start",
-                "identity_increment",
-            };
-        }
+            "identity_start",
+            "identity_increment",
+        };
+    }
 
-        protected override void ResolveIdentities(string schemaName, string tableName, IList<ColumnInfo> columnInfos)
+    protected override void ResolveIdentities(string schemaName, string tableName, IList<ColumnInfo> columnInfos)
+    {
+        foreach (var columnInfo in columnInfos)
         {
-            foreach (var columnInfo in columnInfos)
+            if (columnInfo.Additional.ContainsKey("identity_start"))
             {
-                if (columnInfo.Additional.ContainsKey("identity_start"))
-                {
-                    columnInfo.Additional["#identity_seed"] = columnInfo.Additional["identity_start"];
-                    columnInfo.Additional["#identity_increment"] =
-                        columnInfo.Additional.GetValueOrDefault("identity_start");
-                }
+                columnInfo.Additional["#identity_seed"] = columnInfo.Additional["identity_start"];
+                columnInfo.Additional["#identity_increment"] =
+                    columnInfo.Additional.GetValueOrDefault("identity_start");
             }
         }
-
-        public override IReadOnlyList<string> GetSystemSchemaNames()
-        {
-            return new List<string>
-            {
-                "information_schema",
-                "pg_catalog",
-                "pg_toast",
-            };
-        }
-
-        public override string DefaultSchemaName => "public";
     }
+
+    public override IReadOnlyList<string> GetSystemSchemaNames()
+    {
+        return new List<string>
+        {
+            "information_schema",
+            "pg_catalog",
+            "pg_toast",
+        };
+    }
+
+    public override string DefaultSchemaName => "public";
 }

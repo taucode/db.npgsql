@@ -1,12 +1,11 @@
 ﻿using Npgsql;
 using NUnit.Framework;
-using System;
 using TauCode.Db.Data;
 using TauCode.Db.Exceptions;
 using TauCode.Db.Extensions;
 using TauCode.Extensions;
 
-namespace TauCode.Db.Npgsql.Tests.DbMigrator
+namespace TauCode.Db.Npgsql.LocalTests.DbMigrator
 {
     [TestFixture]
     public class NpgsqlJsonMigratorTests : TestBase

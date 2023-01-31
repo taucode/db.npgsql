@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace TauCode.Db.Npgsql.Tests.DbCruder
+﻿namespace TauCode.Db.Npgsql.LocalTests.DbCruder
 {
     public class HealthInfoDto
     {

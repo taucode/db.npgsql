@@ -1,18 +1,15 @@
-﻿using Newtonsoft.Json;
+﻿using System.Data;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using Npgsql;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
 using TauCode.Db.Data;
 using TauCode.Db.DbValueConverters;
 using TauCode.Db.Exceptions;
 using TauCode.Extensions;
 
-namespace TauCode.Db.Npgsql.Tests.DbSerializer
+namespace TauCode.Db.Npgsql.LocalTests.DbSerializer
 {
     [TestFixture]
     public class NpgsqlSerializerTests : TestBase
