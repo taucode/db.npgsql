@@ -1,9 +1,9 @@
 dotnet restore
 
-dotnet build --configuration Debug
-dotnet build --configuration Release
+dotnet build TauCode.Db.Npgsql.sln -c Debug
+dotnet build TauCode.Db.Npgsql.sln -c Release
 
-dotnet test -c Debug .\test\TauCode.Db.Npgsql.Tests\TauCode.Db.Npgsql.Tests.csproj
-dotnet test -c Release .\test\TauCode.Db.Npgsql.Tests\TauCode.Db.Npgsql.Tests.csproj
+dotnet test TauCode.Db.Npgsql.sln -c Debug
+dotnet test TauCode.Db.Npgsql.sln -c Release
 
 nuget pack nuget\TauCode.Db.Npgsql.nuspec
