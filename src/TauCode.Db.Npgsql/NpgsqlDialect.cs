@@ -1,43 +1,39 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using TauCode.Db.Model;
+﻿using TauCode.Db.Model;
 
-namespace TauCode.Db.Npgsql
+namespace TauCode.Db.Npgsql;
+
+[DbDialect(
+    typeof(NpgsqlDialect),
+    "reserved-words.txt",
+    "\"\"")]
+public class NpgsqlDialect : DbDialectBase
 {
-    [DbDialect(
-        typeof(NpgsqlDialect),
-        "reserved-words.txt",
-        "\"\"")]
-    public class NpgsqlDialect : DbDialectBase
+    #region Static
+
+    public static readonly NpgsqlDialect Instance = new NpgsqlDialect();
+
+    #endregion
+
+    private NpgsqlDialect()
+        : base(DbProviderNames.PostgreSQL)
     {
-        #region Static
+    }
 
-        public static readonly NpgsqlDialect Instance = new NpgsqlDialect();
+    public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
 
-        #endregion
+    public override bool CanDecorateTypeIdentifier => false;
 
-        private NpgsqlDialect()
-            : base(DbProviderNames.PostgreSQL)
+    public override IList<IndexMold> GetCreatableIndexes(TableMold tableMold)
+    {
+        if (tableMold == null)
         {
+            throw new ArgumentNullException(nameof(tableMold));
         }
 
-        public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
+        var pk = tableMold.PrimaryKey;
 
-        public override bool CanDecorateTypeIdentifier => false;
-
-        public override IList<IndexMold> GetCreatableIndexes(TableMold tableMold)
-        {
-            if (tableMold == null)
-            {
-                throw new ArgumentNullException(nameof(tableMold));
-            }
-
-            var pk = tableMold.PrimaryKey;
-
-            return base.GetCreatableIndexes(tableMold)
-                .Where(x => x.Name != pk?.Name)
-                .ToList();
-        }
+        return base.GetCreatableIndexes(tableMold)
+            .Where(x => x.Name != pk?.Name)
+            .ToList();
     }
 }

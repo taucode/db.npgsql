@@ -1,17 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text;
+using Newtonsoft.Json;
 using Npgsql;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using TauCode.Db.Data;
 using TauCode.Db.DbValueConverters;
 using TauCode.Db.Exceptions;
 using TauCode.Db.Model;
 using TauCode.Extensions;
 
-namespace TauCode.Db.Npgsql.Tests.DbCruder
+namespace TauCode.Db.Npgsql.LocalTests.DbCruder
 {
     [TestFixture]
     public class NpgsqlCruderTests : TestBase
@@ -55,11 +52,11 @@ namespace TauCode.Db.Npgsql.Tests.DbCruder
                 TheReal = (float)111111.0,
                 TheFloat = 1111111.0,
 
-                TheDate = DateTime.Parse("1990-01-01"),
-                TheDateTime = DateTime.Parse("1991-01-01"),
-                TheDateTime2 = DateTime.Parse("1992-01-01"),
-                TheDateTimeOffset = DateTime.Parse("1993-01-01"),
-                TheSmallDateTime = DateTime.Parse("1994-01-01"),
+                TheDate = DateTime.Parse("1990-01-01Z"),
+                TheDateTime = DateTime.Parse("1991-01-01Z"),
+                TheDateTime2 = DateTime.Parse("1992-01-01Z"),
+                TheDateTimeOffset = DateTimeOffset.Parse("1993-01-01Z"),
+                TheSmallDateTime = DateTime.Parse("1994-01-01Z"),
                 TheTime = TimeSpan.Parse("01:01:01"),
 
                 TheChar = "a",
@@ -1821,15 +1818,15 @@ Table name: SmallTable; index: 1; int: 22
                 Assert.That(loadedRow["TheReal"], Is.EqualTo((float)111111.0));
                 Assert.That(loadedRow["TheFloat"], Is.EqualTo(1111111.0));
 
-                Assert.That(loadedRow["TheDate"], Is.EqualTo(DateTime.Parse("1990-01-01")));
-                Assert.That(loadedRow["TheDateTime"], Is.EqualTo(DateTime.Parse("1991-01-01")));
-                Assert.That(loadedRow["TheDateTime2"], Is.EqualTo(DateTime.Parse("1992-01-01")));
+                Assert.That(loadedRow["TheDate"], Is.EqualTo(DateTime.Parse("1990-01-01Z")));
+                Assert.That(loadedRow["TheDateTime"], Is.EqualTo(DateTime.Parse("1991-01-01Z")));
+                Assert.That(loadedRow["TheDateTime2"], Is.EqualTo(DateTime.Parse("1992-01-01Z")));
 
                 var dateTime = (DateTime)loadedRow["TheDateTimeOffset"];
                 DateTimeOffset dateTimeOffset = dateTime;
-                Assert.That(dateTimeOffset, Is.EqualTo(DateTimeOffset.Parse("1993-01-01")));
+                Assert.That(dateTimeOffset, Is.EqualTo(DateTimeOffset.Parse("1993-01-01Z")));
 
-                Assert.That(loadedRow["TheSmallDateTime"], Is.EqualTo(DateTime.Parse("1994-01-01")));
+                Assert.That(loadedRow["TheSmallDateTime"], Is.EqualTo(DateTime.Parse("1994-01-01Z")));
                 Assert.That(loadedRow["TheTime"], Is.EqualTo(TimeSpan.Parse("01:01:01")));
 
                 Assert.That(loadedRow["TheChar"], Is.EqualTo("a         "));
