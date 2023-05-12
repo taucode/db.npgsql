@@ -2,22 +2,22 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>TauCode.Db.Npgsql</id>
-    <version>1.7.2-alpha.1.2023-01-31.10-38</version>
+    <version>1.8.1-alpha.1.2023-05-12.12-00</version>
     <authors>TauCode</authors>
     <owners>TauCode</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="file">LICENSE</license>
-    <projectUrl>https://github.com/taucode/taucode.db.npgsql</projectUrl>
-    <repository type="git" url="https://github.com/taucode/taucode.db.npgsql"/>
+    <projectUrl>https://github.com/taucode/db.npgsql</projectUrl>
+    <repository type="git" url="https://github.com/taucode/db.npgsql"/>
     <description>PostgreSQL-specific database functionality</description>
     <releaseNotes>
-      Developing release 1.7.2.
+      Developing release 1.8.1.
     </releaseNotes>
     <tags>taucode db database npgsql postgresql</tags>
     <dependencies>
       <group targetFramework=".NETCoreApp6.0">
-        <dependency id="Npgsql" version="7.0.1" />
-        <dependency id="TauCode.Db" version="1.7.0" />
+        <dependency id="Npgsql" version="7.0.4" />
+        <dependency id="TauCode.Db" version="1.9.1-alpha.1.2023-05-05.12-00" />
       </group>
     </dependencies>
   </metadata>

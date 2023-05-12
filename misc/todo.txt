@@ -1,4 +1,8 @@
-﻿2021-04-17
+﻿2023-05-12
+==========    
+    1. Re-order changelog and todo (newer is upper).
+
+2021-04-17
 ==========
 x   1. Copy "EconeraTesting" ut-s (from TauCode.Db.SqlClient). Try to invoke a "value will be truncated" exception (SQLite seems to not show such behavior)
 

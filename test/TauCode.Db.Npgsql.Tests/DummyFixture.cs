@@ -3,7 +3,7 @@
 namespace TauCode.Db.Npgsql.Tests;
 
 [TestFixture]
-public class DbNpgsqlDummyFixture
+public class DummyFixture
 {
     [Test]
     public void DummyTest()
