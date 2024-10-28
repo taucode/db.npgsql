@@ -1,148 +1,105 @@
 ﻿using Npgsql;
-using NpgsqlTypes;
 using System.Data;
-using TauCode.Db.DbValueConverters;
-using TauCode.Db.Exceptions;
-using TauCode.Db.Model;
+using TauCode.Db.Model.Interfaces;
 
 namespace TauCode.Db.Npgsql;
 
-public class NpgsqlCruder : DbCruderBase
+public class NpgsqlCruder : Cruder
 {
-    public NpgsqlCruder(NpgsqlConnection connection, string schemaName)
-        : base(connection, schemaName ?? NpgsqlTools.DefaultSchemaName)
+    #region ctor
+
+    public NpgsqlCruder()
     {
     }
 
-    public override IDbUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
-    protected override IDbValueConverter CreateDbValueConverter(string tableName, ColumnMold column)
+    public NpgsqlCruder(NpgsqlConnection? connection)
+        : base(connection)
     {
-        switch (column.Type.Name)
-        {
-            case "uuid":
-                return new GuidValueConverter();
 
-            case "boolean":
-                return new BooleanValueConverter();
+    }
+
+    #endregion
+
+    #region Overridden
+
+    public override IUtilityFactory Factory => NpgsqlUtilityFactory.Instance;
+
+    protected override void TuneParameter(IDbDataParameter parameter, IColumnMold columnMold)
+    {
+        DbType dbType;
+        int size = 0;
+
+        switch (columnMold.Type.Name)
+        {
+            case "bit":
+                dbType = DbType.Boolean;
+                break;
+
+            case "int":
+                dbType = DbType.Int32;
+                break;
 
             case "smallint":
-                return new Int16ValueConverter();
-
-            case "integer":
-                return new Int32ValueConverter();
+                dbType = DbType.Int16;
+                break;
 
             case "bigint":
-                return new Int64ValueConverter();
+                dbType = DbType.Int64;
+                break;
 
-            case "numeric":
-            case "money":
-                return new DecimalValueConverter();
+            case "decimal":
+                dbType = DbType.Decimal;
+                break;
 
-            case "double precision":
-                return new DoubleValueConverter();
+            case "uniqueidentifier":
+                dbType = DbType.Guid;
+                break;
 
-            case "real":
-                return new SingleValueConverter();
+            case "varchar":
+                dbType = DbType.String;
+                size = columnMold.Type.Size ?? 0;
+                break;
 
-            case "timestamp without time zone":
-                return new DateTimeValueConverter();
-
-            case "timestamp with time zone":
-                return new DateTimeOffsetValueConverter();
-
-            case "time without time zone":
-                return new TimeSpanValueConverter();
-
-            case "character":
-            case "character varying":
-            case "text":
-                return new StringValueConverter();
-
-            case "bytea":
-                return new ByteArrayValueConverter();
+            case "datetimeoffset":
+                dbType = DbType.DateTimeOffset;
+                size = 10; // todo hardcoded; without this, command.Prepare() throws an exception.
+                break;
 
             default:
-                throw this.CreateColumnTypeNotSupportedException(tableName, column.Name, column.Type.Name);
+                throw new NotImplementedException();
         }
+
+        parameter.DbType = dbType;
+        parameter.Size = size;
     }
 
-    protected override IDbDataParameter CreateParameter(string tableName, ColumnMold column)
+    protected override void OnBeforeInsertRows(ITableMold tableMold, IRowSet rows, Func<string, bool>? fieldSelector = null)
     {
-        const string parameterName = "parameter_name_placeholder";
+        var identityColumn = tableMold.Columns.SingleOrDefault(x => x.Identity != null);
 
-        switch (column.Type.Name)
+        if (identityColumn != null)
         {
-            case "uuid":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Uuid);
+            var schemaName = tableMold.SchemaName;
+            var tableName = tableMold.Name;
 
-            case "boolean":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Boolean);
-
-            case "smallint":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Smallint);
-
-            case "integer":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Integer);
-
-            case "bigint":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Bigint);
-
-            case "numeric":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Numeric);
-
-            case "money":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Money);
-
-            case "real":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Real);
-
-            case "double precision":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Double);
-
-            case "timestamp without time zone":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Timestamp);
-
-            case "timestamp with time zone":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.TimestampTz);
-
-            case "time without time zone":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Time);
-
-            case "character":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Char);
-
-            case "character varying":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Varchar);
-
-            case "text":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Text);
-
-            case "bytea":
-                return new NpgsqlParameter(parameterName, NpgsqlDbType.Bytea);
-
-            default:
-                throw new TauDbException($"Type '{column.Type.Name}' not supported. Table: '{tableName}', column: '{column.Name}'.");
+            var sql = $@"SET IDENTITY_INSERT {schemaName}.{tableName} ON";
+            this.Connection.ExecuteSql(sql);
         }
     }
 
-    protected override void FitParameterValue(IDbDataParameter parameter)
+    protected override void OnAfterInsertRows(ITableMold tableMold, IRowSet rows, Func<string, bool>? fieldSelector = null)
     {
-        var value = parameter.Value;
+        var identityColumn = tableMold.Columns.SingleOrDefault(x => x.Identity != null);
 
-        int? length = null;
+        if (identityColumn != null)
+        {
+            var schemaName = tableMold.SchemaName;
+            var tableName = tableMold.Name;
 
-        if (value is string s)
-        {
-            length = s.Length;
-        }
-        else if (value is byte[] arr)
-        {
-            length = arr.Length;
-        }
-
-        if (length.HasValue)
-        {
-            parameter.Size = length.Value;
+            var sql = $@"SET IDENTITY_INSERT {schemaName}.{tableName} OFF";
+            this.Connection.ExecuteSql(sql);
         }
     }
+
+    #endregion
 }

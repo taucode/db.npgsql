@@ -1,36 +1,20 @@
-﻿using Npgsql;
-using System.Data;
+﻿namespace TauCode.Db.Npgsql;
 
-namespace TauCode.Db.Npgsql;
+// todo regions
 
-public class NpgsqlUtilityFactory : IDbUtilityFactory
+public class NpgsqlUtilityFactory : IUtilityFactory
 {
-    public static NpgsqlUtilityFactory Instance { get; } = new NpgsqlUtilityFactory();
+    public static NpgsqlUtilityFactory Instance { get; } = new();
 
     private NpgsqlUtilityFactory()
     {
     }
 
-    public IDbDialect GetDialect() => NpgsqlDialect.Instance;
+    public IDialect Dialect { get; } = new NpgsqlDialect();
 
-    public IDbScriptBuilder CreateScriptBuilder(string schemaName) => new NpgsqlScriptBuilder(schemaName);
+    public IScriptBuilder CreateScriptBuilder() => new NpgsqlScriptBuilder();
 
-    public IDbConnection CreateConnection() => new NpgsqlConnection();
+    public IExplorer CreateExplorer() => new NpgsqlExplorer();
 
-    public IDbSchemaExplorer CreateSchemaExplorer(IDbConnection connection)
-    {
-        return new NpgsqlSchemaExplorer((NpgsqlConnection)connection);
-    }
-
-    public IDbInspector CreateInspector(IDbConnection connection, string schemaName) =>
-        new NpgsqlInspector((NpgsqlConnection)connection, schemaName);
-
-    public IDbTableInspector CreateTableInspector(IDbConnection connection, string schemaName, string tableName) =>
-        new NpgsqlTableInspector((NpgsqlConnection)connection, schemaName, tableName);
-
-    public IDbCruder CreateCruder(IDbConnection connection, string schemaName) =>
-        new NpgsqlCruder((NpgsqlConnection)connection, schemaName);
-
-    public IDbSerializer CreateSerializer(IDbConnection connection, string schemaName) =>
-        new NpgsqlSerializer((NpgsqlConnection)connection, schemaName);
+    public ICruder CreateCruder() => new NpgsqlCruder();
 }
